@@ -1,4 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using BlazorSignalR.Shared;
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NavigationManager
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">BlazorSignalR</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -15,25 +19,52 @@
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="oi oi-plus" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link position-relative" href="counter">
+                <span class="oi oi-plus" aria-hidden="true"></span>
+                NotificatioTypes
+                <span class="position-absolute top-50 start-100 translate-middle badge rounded-pill bg-info rounded-circle">
+                    @NotificationsCount
+                    <span class="visually-hidden">unread messages</span>
+                </span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="fetchdata">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Fetch data
+            <NavLink class="nav-link" href="notificationmsg">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Notifications
             </NavLink>
         </div>
     </nav>
 </div>
 
 @code {
+    private HubConnection? hubConnection { get; set; }
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    public int NotificationsCount { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/notificationmsg"))
+        .WithAutomaticReconnect()
+        .Build();
+
+        hubConnection.On<NotificationType>("ReceiveNotificationType", type =>
+        {
+            NotificationsCount++;
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection!.DisposeAsync();
     }
 }
