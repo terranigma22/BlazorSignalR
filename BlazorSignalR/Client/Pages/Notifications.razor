@@ -1,0 +1,78 @@
+﻿@page "/notificationmsg"
+@using BlazorSignalR.Shared;
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NavigationManager
+
+<PageTitle>Notifications SignalR</PageTitle>
+
+
+<form @onsubmit="SendNotification">
+    <div class="row">
+        <div class="form-group">
+            <input type="text" class="form-control" placeholder="Write a message" @bind="Msg"/>
+        </div>
+        <br />
+        <div class="form-group">
+            <button class="btn btn-primary form-control" type="submit">Send Notification</button>
+        </div>
+    </div>
+</form>
+
+<hr />
+<div>
+    @if (Messages is null || Messages.Count == 0)
+    {
+        <p>Connected: @IsConnected</p>   
+    }
+    else
+    {
+        <ul>
+            @foreach (var item in Messages)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    }
+</div>
+<hr />
+
+@code {
+    private HubConnection? hubConnection { get; set; }
+    private List<string> Messages { get; set; } = new List<string>();
+    public string Msg { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/notificationmsg"))
+        .WithAutomaticReconnect()
+        .Build();
+
+        hubConnection.On<string>("ReceiveNotificationMsg", Msg =>
+        {
+            Messages!.Add(Msg);
+            StateHasChanged();
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public bool IsConnected => hubConnection!.State == HubConnectionState.Connected;
+
+    Task sendNotificationMsg() => hubConnection!.SendAsync("SenNotificationMsg", Msg);
+
+    public async Task SendNotification(EventArgs e)
+    {
+        if (IsConnected)
+        {
+            await sendNotificationMsg();
+            Msg = string.Empty;
+        }
+    }
+
+    public void Dispose()
+    {
+        _ = hubConnection!.DisposeAsync();
+    }
+
+}
