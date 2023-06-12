@@ -1,5 +1,7 @@
+using BlazorSignalR.Server;
 using BlazorSignalR.Server.Hubs;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +18,9 @@ builder.Services.AddResponseCompression(opt =>
     opt.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
         new[] { "application/octet-stream" });
 });
+
+builder.Services.AddDbContext<ApplicationDbContext>(options => 
+    options.UseSqlServer("name=DefaultConnection"));
 
 var app = builder.Build();
 

@@ -2,6 +2,7 @@
 @using BlazorSignalR.Shared;
 @using Microsoft.AspNetCore.SignalR.Client
 @inject NavigationManager NavigationManager
+@inject IRepository repository
 
 <PageTitle>Notifications SignalR</PageTitle>
 
@@ -29,16 +30,19 @@
         <ul>
             @foreach (var item in Messages)
             {
-                <li>@item</li>
+                <li>@item.Message</li>
             }
         </ul>
     }
 </div>
 <hr />
+<div class="form-group">
+   <button class="btn btn-danger form-control" @onclick="RemoveNotifications">Remove All Messagess</button>
+</div>
 
 @code {
     private HubConnection? hubConnection { get; set; }
-    private List<string> Messages { get; set; } = new List<string>();
+    private List<NotificationMsg> Messages { get; set; } = new List<NotificationMsg>();
     public string Msg { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -48,23 +52,51 @@
         .WithAutomaticReconnect()
         .Build();
 
-        hubConnection.On<string>("ReceiveNotificationMsg", Msg =>
+        hubConnection.On("ReceiveNotificationMsg", async () =>
         {
-            Messages!.Add(Msg);
-            StateHasChanged();
+            await GetNotifications();
         });
 
         await hubConnection.StartAsync();
+
+        await GetNotifications();
     }
 
     public bool IsConnected => hubConnection!.State == HubConnectionState.Connected;
 
-    Task sendNotificationMsg() => hubConnection!.SendAsync("SenNotificationMsg", Msg);
+    Task sendNotificationMsg() => hubConnection!.SendAsync("SenNotificationMsg");
+
+    public async Task GetNotifications()
+    {
+        var response = await repository.Get<List<NotificationMsg>>("api/notifications");
+        if (IsConnected)
+        {
+            Messages = response.Response!;
+            StateHasChanged();
+        }
+    }
+
+    public async Task RemoveNotifications()
+    {
+        var response = await repository.Delete<object>("api/notifications");
+        if (response.Error)
+        {
+            var msgError = await response.GetError();
+            return;
+        }
+        await sendNotificationMsg();
+    }
 
     public async Task SendNotification(EventArgs e)
     {
         if (IsConnected)
         {
+            var httpResponse = await repository.Post("api/notifications", Msg);
+            if (httpResponse.Error)
+            {
+                var msgError = await httpResponse.GetError();
+                return;
+            }
             await sendNotificationMsg();
             Msg = string.Empty;
         }
